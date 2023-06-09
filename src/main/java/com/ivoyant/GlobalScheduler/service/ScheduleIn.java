@@ -17,8 +17,8 @@ public interface ScheduleIn {
     @GetMapping("/getSchedule/{id}")
     public ResponseEntity getScheduleById(@PathVariable int id) throws SQLException;
 
-    @PutMapping("/updateSchedule/{id}")
-    public ResponseEntity updateScheduleById(@RequestBody Schedule schedule);
+    @PutMapping("/updateSchedule")
+    public ResponseEntity updateScheduleById(@RequestBody Schedule schedule) throws SQLException;
 
     @DeleteMapping("/deleteSchedule/{id}")
     public ResponseEntity deleteScheduleById(@PathVariable int id);

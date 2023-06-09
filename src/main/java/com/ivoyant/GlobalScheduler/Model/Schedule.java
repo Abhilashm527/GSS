@@ -27,11 +27,11 @@ public class Schedule {
     @JsonProperty("zoneId")
     private String zoneId;
     @JsonProperty("createdTime")
-    private Timestamp createdTime;
+    private Date createdTime;
     @JsonProperty("lastRun")
-    private Timestamp lastRun;
+    private Date lastRun;
     @JsonProperty("nextRun")
-    private Timestamp nextRun;
+    private Date nextRun;
     @JsonProperty("state")
     private ScheduleState state;
 

@@ -16,12 +16,16 @@ import java.util.List;
 import java.util.Random;
 
 @Component
-public class ScheduleImpl implements ScheduleIn {
+public class ScheduleImpl {
 
     private final JdbcTemplate jdbcTemplate;
     private static final String insertSQl = "INSERT INTO public.schedule(\n" +
             "\tscheduleid, name, description, target, active, targettype, cron_expression, zoneid, createdtime, lastrun, nextrun, state)\n" +
             "\tVALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+
+    private static final String updateSQl = "UPDATE public.schedule\n" +
+            "\tSET scheduleid=?, name=?, description=?, target=?, active=?, targettype=?, cron_expression=?, zoneid=?, createdtime=?, lastrun=?, nextrun=?, state=?\n" +
+            "\tWHERE scheduleid=?";
     private static final String getAllScheduleSQl = "select * from public.schedule";
     private static final String getScheduleSQl = "select * from public.schedule where scheduleid = ?";
     private static final String deleteScheduleSQl = "delete from public.schedule where scheduleid = ?";
@@ -38,8 +42,7 @@ public class ScheduleImpl implements ScheduleIn {
     }
 
 
-    @Override
-    public ResponseEntity createSchedule(Schedule schedule) throws SQLException {
+    public Schedule create(Schedule schedule) throws SQLException {
         PreparedStatement insertStmt = jdbcTemplateConnection.prepareStatement(insertSQl);
         java.util.Date currentDate = new java.util.Date();
         Timestamp currentTimestamp = new Timestamp(currentDate.getTime());
@@ -62,12 +65,11 @@ public class ScheduleImpl implements ScheduleIn {
         insertStmt.setTimestamp(11, null);
         insertStmt.setString(12, ScheduleState.CREATED.toString());
         insertStmt.execute();
-        return ResponseEntity.ok("Schedule has been created");
+        return schedule;
     }
 
 
-    @Override
-    public ResponseEntity getScheduleById(int id) throws SQLException {
+    public Schedule getSchedule(int id) throws SQLException {
         PreparedStatement getScheduleByid = jdbcTemplateConnection.prepareStatement(getScheduleSQl);
         getScheduleByid.setInt(1, id);
         ResultSet resultSet = getScheduleByid.executeQuery();
@@ -88,34 +90,58 @@ public class ScheduleImpl implements ScheduleIn {
             schedule.setState(ScheduleState.valueOf(resultSet.getString("state")));
         }
         if (schedule == null)
-            return ResponseEntity.ok("The Schedule is Not Found");
-        return ResponseEntity.ok(schedule);
+            return null;
+        return schedule;
     }
 
-    @Override
-    public ResponseEntity updateScheduleById(Schedule schedule) {
+    public Schedule updateSchedule(Schedule schedule) throws SQLException {
+        PreparedStatement updateStmt = jdbcTemplateConnection.prepareStatement(updateSQl);
+        updateStmt.setInt(1, schedule.getScheduleId());
+        // Set other parameters for the update query
 
+        PreparedStatement getScheduleByid = jdbcTemplateConnection.prepareStatement(getScheduleSQl);
+        getScheduleByid.setInt(1, schedule.getScheduleId());
+        ResultSet resultSet = getScheduleByid.executeQuery();
+        if (resultSet.next()) {
+            updateStmt.setString(2, schedule.getName());
+            updateStmt.setString(3, schedule.getDescription());
+            updateStmt.setString(4, schedule.getTarget());
+            updateStmt.setBoolean(5, schedule.isActive());
+            updateStmt.setString(6, schedule.getTargetType());
+            updateStmt.setString(7, schedule.getCron_expression());
+            updateStmt.setString(8, schedule.getZoneId());
+            updateStmt.setTimestamp(9, (Timestamp) schedule.getCreatedTime());
+            updateStmt.setTimestamp(10, (Timestamp) schedule.getLastRun());
+            updateStmt.setTimestamp(11, (Timestamp) schedule.getNextRun());
+            updateStmt.setString(12, schedule.getState().toString());
+            updateStmt.setInt(13, schedule.getScheduleId()); // Set the ID for the WHERE clause of the update query
+            updateStmt.executeUpdate();
+        }
 
-        return null;
+        // Close the statements and result set
+        updateStmt.close();
+        getScheduleByid.close();
+        resultSet.close();
+
+        return schedule;
     }
 
-    @Override
-    public ResponseEntity deleteScheduleById(int id) {
+
+    public boolean deleteSchedule(int id) {
         try {
             PreparedStatement deleteScheduleById = jdbcTemplateConnection.prepareStatement(deleteScheduleSQl);
             deleteScheduleById.setInt(1, id);
             int rows = deleteScheduleById.executeUpdate();
             if (rows <= 0)
-                return ResponseEntity.ok("The schedule is not found");
-            return ResponseEntity.ok("the Schedule has been removed");
+                return false;
+            return true;
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return null;
+        return false;
     }
 
-    @Override
-    public ResponseEntity getAllSchedule() {
+    public List<Schedule> getAllSchedules() {
         try {
             PreparedStatement getAllSchedules = jdbcTemplateConnection.prepareStatement(getAllScheduleSQl);
             ResultSet resultSet = getAllSchedules.executeQuery();
@@ -136,7 +162,7 @@ public class ScheduleImpl implements ScheduleIn {
                 schedule.setState(ScheduleState.valueOf(resultSet.getString("state")));
                 scheduleList.add(schedule);
             }
-            return ResponseEntity.ok(scheduleList);
+            return scheduleList;
         } catch (SQLException e) {
             e.printStackTrace();
         }
