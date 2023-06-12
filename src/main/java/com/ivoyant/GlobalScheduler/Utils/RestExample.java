@@ -19,7 +19,7 @@ public class RestExample {
         HttpEntity<String> requestEntity = new HttpEntity<>(headers);
 
         // Send the HTTP GET request
-        ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.GET, requestEntity, String.class);
+        ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, httpMethod, requestEntity, String.class);
 
         // Get the response body
 

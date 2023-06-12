@@ -26,4 +26,8 @@ public interface ScheduleIn {
     @GetMapping("/getAllSchedule")
     public ResponseEntity getAllSchedule();
 
+
+    @GetMapping("/getScheduleHistory/{id}")
+    public ResponseEntity getScheduleHistory(@PathVariable int id) throws SQLException;
+
 }

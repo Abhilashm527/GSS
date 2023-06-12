@@ -34,40 +34,50 @@ public class ScheduleProvider {
         List<Schedule> scheduleList = scheduleService.getAllSchedules();
 
         for (Schedule schedule : scheduleList) {
-            if (ScheduleState.CREATED == schedule.getState()) {
-                try {
-                    Date date = schedule.getNextRun();
-                    Timestamp nextRunTimestamp = new Timestamp(date.getTime());
-                    Timestamp buffered = zoneFormatter.formatToZone(new Date(), schedule.getZoneId());
-                    int value = buffered.compareTo(nextRunTimestamp);
-                    System.out.println("int value " + value);
-                    if (value >= 0) {
-                        schedule.setState(ScheduleState.BUFFERED);
+            if (schedule.isActive()) {
+                if (ScheduleState.CREATED == schedule.getState()) {
+                    try {
+                        Date date = schedule.getNextRun();
+                        Timestamp nextRunTimestamp = new Timestamp(date.getTime());
+                        Timestamp buffered = zoneFormatter.formatToZone(new Date(), schedule.getZoneId());
+                        int value = buffered.compareTo(nextRunTimestamp);
+                        System.out.println("int value " + value);
+                        if (value >= 0) {
+                            schedule.setState(ScheduleState.BUFFERED);
+                        }
+                    } catch (Exception e) {
+                        System.out.println("Invalid Cron expression");
                     }
-                } catch (Exception e) {
-                    System.out.println("Invalid Cron expression");
+                    scheduleService.updateSchedule(schedule);
+                } else if (ScheduleState.BUFFERED == schedule.getState()) {
+                    Date date = schedule.getNextRun();
+                    Date bufferedTime = zoneFormatter.formatToZone(new Date(), schedule.getZoneId());
+                    if (date.compareTo(bufferedTime) >= 0) {
+                        schedule.setState(ScheduleState.RUNNING);
+                        ResponseEntity<String> response = restExample.restCall(schedule.getTarget(), HttpMethod.valueOf(schedule.getTargetType()));
+                        if (response.getStatusCode().is2xxSuccessful()) {
+                            schedule.setLastRun(zoneFormatter.formatToZone(new Date(), schedule.getZoneId()));
+                            System.out.println("Resonse" + response.getBody());
+                            schedule.setState(ScheduleState.COMPLETED);
+                            scheduleService.insertHistory(schedule);
+                        }
+                    }
+                    scheduleService.updateSchedule(schedule);
+                } else if (ScheduleState.FAILED == schedule.getState()) {
+                    if (zoneFormatter.formatToZone(new Date(), schedule.getZoneId()).compareTo(schedule.getNextRun()) >= 0) {
+                        schedule.setState(ScheduleState.CREATED);
+                    }
+                } else if (ScheduleState.COMPLETED == schedule.getState()) {
+                    if (zoneFormatter.formatToZone(new Date(), schedule.getZoneId()).compareTo(schedule.getNextRun()) >= 0) {
+                        schedule.setState(ScheduleState.CREATED);
+                    }
+                    scheduleService.updateSchedule(schedule);
                 }
-                scheduleService.updateSchedule(schedule);
-            } else if (ScheduleState.BUFFERED == schedule.getState()) {
-                Date date = schedule.getNextRun();
-                Date bufferedTime = zoneFormatter.formatToZone(new Date(), schedule.getZoneId());
-                if (date.compareTo(bufferedTime) >= 0) {
-                    schedule.setState(ScheduleState.RUNNING);
-                    ResponseEntity<String> data = restExample.restCall(schedule.getTarget(), HttpMethod.valueOf(schedule.getTargetType()));
-                    schedule.setLastRun(zoneFormatter.formatToZone(new Date(), schedule.getZoneId()));
-                    System.out.println("Resonse" + data.getBody());
-                    schedule.setState(ScheduleState.COMPLETED);
-
-                }
-                scheduleService.updateSchedule(schedule);
-            } else if (ScheduleState.COMPLETED == schedule.getState()) {
-                if (zoneFormatter.formatToZone(new Date(), schedule.getZoneId()).compareTo(schedule.getNextRun()) >= 0) {
-                    schedule.setState(ScheduleState.CREATED);
-                }
+            } else {
+                schedule.setNextRun(null);
                 scheduleService.updateSchedule(schedule);
             }
         }
-
         System.out.println("Executing scheduleprovide...");
     }
 }

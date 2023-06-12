@@ -44,17 +44,20 @@ public class ScheduleTask {
     public void executeTask() throws SQLException {
         List<Schedule> scheduleList = scheduleService.getAllSchedules();
         for (Schedule schedule : scheduleList) {
-            String expression = schedule.getCron_expression();
-            try {
-                CronExpression cron = new CronExpression(expression);
-                Date nextRun = cron.getNextValidTimeAfter(new java.util.Date());
-                Timestamp next = zoneFormatter.formatToZone(nextRun, schedule.getZoneId());
-                System.out.println("Next run: " + next);
-                schedule.setNextRun(next);
-            } catch (Exception e) {
-                System.out.println("Invalid Cron expression");
+            if (schedule.isActive()) {
+                String expression = schedule.getCron_expression();
+                try {
+                    CronExpression cron = new CronExpression(expression);
+                    Date nextRun = cron.getNextValidTimeAfter(new java.util.Date());
+                    Timestamp next = zoneFormatter.formatToZone(nextRun, schedule.getZoneId());
+                    System.out.println("Next run: " + next);
+                    schedule.setNextRun(next);
+                } catch (Exception e) {
+                    System.out.println("Invalid Cron expression");
+                }
+                scheduleService.updateSchedule(schedule);
             }
-            scheduleService.updateSchedule(schedule);
+
         }
         System.out.println("Executing task...");
     }

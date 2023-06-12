@@ -6,8 +6,11 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
+import javax.management.openmbean.OpenMBeanConstructorInfo;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 
 @Component
 public class ScheduleController implements ScheduleIn {
@@ -49,6 +52,14 @@ public class ScheduleController implements ScheduleIn {
         List<Schedule> scheduleList = scheduleImpl.getAllSchedules();
         if (scheduleList == null)
             return ResponseEntity.ok("No schedules");
+        return ResponseEntity.ok(scheduleList);
+    }
+
+    @Override
+    public ResponseEntity getScheduleHistory(int id) throws SQLException {
+        HashMap<String, Object> scheduleList = scheduleImpl.getScheduleHistory(id);
+        if (scheduleList == null || scheduleList.isEmpty())
+            return ResponseEntity.status(HttpStatusCode.valueOf(404)).body("The Schedule is not found");
         return ResponseEntity.ok(scheduleList);
     }
 }

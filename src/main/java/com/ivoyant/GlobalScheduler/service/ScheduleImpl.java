@@ -3,6 +3,7 @@ package com.ivoyant.GlobalScheduler.service;
 import com.ivoyant.GlobalScheduler.Model.Schedule;
 import com.ivoyant.GlobalScheduler.Model.ScheduleState;
 import jakarta.annotation.PostConstruct;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
@@ -22,6 +24,13 @@ public class ScheduleImpl {
     private static final String insertSQl = "INSERT INTO public.schedule(\n" +
             "\tscheduleid, name, description, target, active, targettype, cron_expression, zoneid, createdtime, lastrun, nextrun, state)\n" +
             "\tVALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+
+
+    private static final String insertHistorySQl = "INSERT INTO public.schedule_history(\n" +
+            "\tschedulehistoryid, scheduleid, target, active, targettype, lastrun, lastrunstate)\n" +
+            "\tVALUES (?, ?, ?, ?, ?, ?, ?);";
+
+    private static final String selectHistoryByIdSQl = "select * from schedule_history where scheduleid= ?;";
 
     private static final String updateSQl = "UPDATE public.schedule\n" +
             "\tSET scheduleid=?, name=?, description=?, target=?, active=?, targettype=?, cron_expression=?, zoneid=?, createdtime=?, lastrun=?, nextrun=?, state=?\n" +
@@ -51,7 +60,7 @@ public class ScheduleImpl {
         ZonedDateTime zonedDateTime = currentTimestamp.toInstant().atZone(zoneId);
         OffsetDateTime offsetDateTime = zonedDateTime.toOffsetDateTime();
 
-        int scheduleId = generateRandomNumber();
+        int scheduleId = generateRandomScheduleId();
         insertStmt.setInt(1, scheduleId);
         insertStmt.setString(2, schedule.getName());
         insertStmt.setString(3, schedule.getName());
@@ -170,10 +179,66 @@ public class ScheduleImpl {
     }
 
 
-    public static int generateRandomNumber() {
+    public void insertHistory(Schedule schedule) throws SQLException {
+        PreparedStatement insertHistoryStmt = jdbcTemplateConnection.prepareStatement(insertHistorySQl);
+
+        insertHistoryStmt.setInt(1, generateRandomJobId());
+        insertHistoryStmt.setInt(2, schedule.getScheduleId());
+        insertHistoryStmt.setString(3, schedule.getTarget());
+        insertHistoryStmt.setBoolean(4, schedule.isActive());
+        insertHistoryStmt.setString(5, schedule.getTargetType());
+        insertHistoryStmt.setTimestamp(6, (Timestamp) schedule.getLastRun());
+        insertHistoryStmt.setString(7, schedule.getState().toString());
+        insertHistoryStmt.execute();
+    }
+
+
+    public static int generateRandomScheduleId() {
+        Random random = new Random();
+        int min = 100;
+        int max = 999;
+        return random.nextInt(max - min + 1) + min;
+    }
+
+    public static int generateRandomJobId() {
         Random random = new Random();
         int min = 100000;
         int max = 999999;
         return random.nextInt(max - min + 1) + min;
+    }
+
+
+    public HashMap<String, Object> getScheduleHistory(int id) throws SQLException {
+        HashMap<String, Object> scheduleHistory = new HashMap<>();
+        PreparedStatement getScheduleByid = jdbcTemplateConnection.prepareStatement(getScheduleSQl);
+        getScheduleByid.setInt(1, id);
+        ResultSet result = getScheduleByid.executeQuery();
+        while (result.next()) {
+            scheduleHistory.put("scheduleId", String.valueOf(result.getInt("scheduleId")));
+            scheduleHistory.put("name", result.getString("name"));
+            scheduleHistory.put("description", result.getString("description"));
+            scheduleHistory.put("cron_expression", result.getString("cron_expression"));
+            scheduleHistory.put("nextRun", String.valueOf(result.getTimestamp("nextRun")));
+        }
+        PreparedStatement getScheduleHistoryByid = jdbcTemplateConnection.prepareStatement(selectHistoryByIdSQl);
+        getScheduleHistoryByid.setInt(1, id);
+        ResultSet resultSet = getScheduleHistoryByid.executeQuery();
+
+        List<HashMap<String, Object>> scheduleList = new ArrayList<>();
+
+        while (resultSet.next()) {
+            HashMap<String, Object> schedule = new HashMap<>();
+            schedule.put("jobId", resultSet.getInt("schedulehistoryid"));
+            schedule.put("Target", resultSet.getString("target"));
+            schedule.put("Active", String.valueOf(resultSet.getBoolean("active")));
+            schedule.put("TargetType", resultSet.getString("targetType"));
+            schedule.put("LastRun", resultSet.getTimestamp("lastRun").toString());
+            schedule.put("status", resultSet.getString("lastrunstate"));
+            scheduleList.add(schedule);
+        }
+        if (!scheduleList.isEmpty()) {
+            scheduleHistory.put("jobHistory", scheduleList);
+        }
+        return scheduleHistory;
     }
 }
