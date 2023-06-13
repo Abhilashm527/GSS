@@ -1,4 +1,4 @@
-# GSS
+# Global Scheduler 
 
 Need to add the these 2 table  to use the service:
 
